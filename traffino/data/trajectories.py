@@ -51,7 +51,7 @@ def read_file(_path, delim='\t'):
 
 
 def poly_fit(traj, traj_len, 
-             # threshold
+             threshold
              ):
     """
     Input:
@@ -61,32 +61,32 @@ def poly_fit(traj, traj_len,
     Output:
     - int: 1 -> Non Linear 0-> Linear
     """
-    t = np.linspace(0, traj_len - 1, traj_len)
+    t = np.linspace(0, traj_len - 1, traj_len) # np.linspace(시작점, 끝점, 구간 내 숫자 개수)
     res_x = np.polyfit(t, traj[0, -traj_len:], 2, full=True)[1]
     res_y = np.polyfit(t, traj[1, -traj_len:], 2, full=True)[1]
-    #if res_x + res_y >= threshold:
-    #    return 1.0
-    #else:
-    #    return 0.0
+    if res_x + res_y >= threshold:
+       return 1.0
+    else:
+       return 0.0
     return 0.0
 
 class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
     def __init__(
         self, data_dir, obs_len=8, pred_len=12, skip=1, 
-        # threshold=0.002, min_ped=1, 
+        threshold=0.002, min_agent=1, 
         delim='\t'
     ):
         """
         Args:
-        - data_dir: Directory containing dataset files in the format
+        - data_dir: Directory containing dataset files in the format ###  파일명을 제외한 디렉토리 경로를 주어야 함
         <frame_id> <agent_id> <x> <y>
         - obs_len: Number of time-steps in input trajectories
         - pred_len: Number of time-steps in output trajectories
         - skip: Number of frames to skip while making the dataset
         - threshold: Minimum error to be considered for non linear traj
         when using a linear predictor
-        - min_ped: Minimum number of pedestrians that should be in a seqeunce
+        - min_agent: Minimum number of agents that should be in a seqeunce
         - delim: Delimiter in the dataset files
         """
         super(TrajectoryDataset, self).__init__()
@@ -95,37 +95,41 @@ class TrajectoryDataset(Dataset):
         self.obs_len = obs_len
         self.pred_len = pred_len
         self.skip = skip
-        self.seq_len = self.obs_len + self.pred_len
+        self.seq_len = self.obs_len + self.pred_len # 20
         self.delim = delim
 
-        all_files = os.listdir(self.data_dir)
-        all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
-        num_peds_in_seq = []
+        all_files = os.listdir(self.data_dir) # 디렉토리에 있는 모든 파일을 리스트로 가져옴, path = 'C:\\Users\\NGN\\dev\\Traffino\\TRAFFINO\\traffino\\datasets'
+        print(all_files) ### data_dir에서 파일을 잘 불러오는 지 확인
+        all_files = [os.path.join(self.data_dir, _path) for _path in all_files] # data_dir\_path
+        num_agents_in_seq = []
+        # num_peds_in_seq = []
         seq_list = []
         seq_list_rel = []
         loss_mask_list = []
-        non_linear_ped = []
+        non_linear_agent = []
+        # non_linear_ped = []
         for path in all_files:
             data = read_file(path, delim)
-            frames = np.unique(data[:, 0]).tolist()
+            frames = np.unique(data[:, 0]).tolist()# np.unique : 중복된 값을 제거한 배열을 반환함, # 모든 행 0번째 열만 slicing
             frame_data = []
             for frame in frames:
-                frame_data.append(data[frame == data[:, 0], :])
+                frame_data.append(data[frame == data[:, 0], :]) # frame_data (agent 정보)
             num_sequences = int(
-                math.ceil((len(frames) - self.seq_len + 1) / skip))
+                math.ceil((len(frames) - self.seq_len + 1) / skip)) # 가까운 수의 상위 정수로 반올림 (7994-20)/1 = 7975
 
             for idx in range(0, num_sequences * self.skip + 1, skip):
-                curr_seq_data = np.concatenate(
+                curr_seq_data = np.concatenate(                         # 현재 seq_data
                     frame_data[idx:idx + self.seq_len], axis=0)
-                peds_in_curr_seq = np.unique(curr_seq_data[:, 1])
-                curr_seq_rel = np.zeros((len(peds_in_curr_seq), 2,
+            
+                agents_in_curr_seq = np.unique(curr_seq_data[:, 1])       # 현재 seq에 있는 agents, 모든 행의 1번째(agent 정보) 열 slicing
+                curr_seq_rel = np.zeros((len(agents_in_curr_seq), 2,        # (현재 seq에 있는 agents 개수, 2, seq_len) 
                                          self.seq_len))
-                curr_seq = np.zeros((len(peds_in_curr_seq), 2, self.seq_len))
-                curr_loss_mask = np.zeros((len(peds_in_curr_seq),
+                curr_seq = np.zeros((len(agents_in_curr_seq), 2, self.seq_len))
+                curr_loss_mask = np.zeros((len(agents_in_curr_seq),
                                            self.seq_len))
                 num_peds_considered = 0
-                _non_linear_ped = []
-                for _, ped_id in enumerate(peds_in_curr_seq):
+                _non_linear_agent = []
+                for _, ped_id in enumerate(agents_in_curr_seq):
                     curr_ped_seq = curr_seq_data[curr_seq_data[:, 1] ==
                                                  ped_id, :]
                     curr_ped_seq = np.around(curr_ped_seq, decimals=4)
@@ -143,26 +147,26 @@ class TrajectoryDataset(Dataset):
                     curr_seq[_idx, :, pad_front:pad_end] = curr_ped_seq
                     curr_seq_rel[_idx, :, pad_front:pad_end] = rel_curr_ped_seq
                     # Linear vs Non-Linear Trajectory
-                    _non_linear_ped.append(
+                    _non_linear_agent.append(
                         poly_fit(curr_ped_seq, pred_len 
-                                 #,threshold
+                                 ,threshold
                                  )
                                  )
                     curr_loss_mask[_idx, pad_front:pad_end] = 1
                     num_peds_considered += 1
 
-                # if num_peds_considered > min_ped:
-                #     non_linear_ped += _non_linear_ped
-                #     num_peds_in_seq.append(num_peds_considered)
-                #     loss_mask_list.append(curr_loss_mask[:num_peds_considered])
-                #     seq_list.append(curr_seq[:num_peds_considered])
-                #     seq_list_rel.append(curr_seq_rel[:num_peds_considered])
+                if num_peds_considered > min_agent:
+                    non_linear_agent += _non_linear_agent
+                    num_agents_in_seq.append(num_peds_considered)
+                    loss_mask_list.append(curr_loss_mask[:num_peds_considered])
+                    seq_list.append(curr_seq[:num_peds_considered])
+                    seq_list_rel.append(curr_seq_rel[:num_peds_considered])
 
         self.num_seq = len(seq_list)
         seq_list = np.concatenate(seq_list, axis=0)
         seq_list_rel = np.concatenate(seq_list_rel, axis=0)
         loss_mask_list = np.concatenate(loss_mask_list, axis=0)
-        non_linear_ped = np.asarray(non_linear_ped)
+        non_linear_agent = np.asarray(non_linear_agent)
 
         # Convert numpy -> Torch Tensor
         self.obs_traj = torch.from_numpy(
@@ -174,8 +178,8 @@ class TrajectoryDataset(Dataset):
         self.pred_traj_rel = torch.from_numpy(
             seq_list_rel[:, :, self.obs_len:]).type(torch.float)
         self.loss_mask = torch.from_numpy(loss_mask_list).type(torch.float)
-        self.non_linear_ped = torch.from_numpy(non_linear_ped).type(torch.float)
-        cum_start_idx = [0] + np.cumsum(num_peds_in_seq).tolist()
+        self.non_linear_agent = torch.from_numpy(non_linear_agent).type(torch.float)
+        cum_start_idx = [0] + np.cumsum(num_agents_in_seq).tolist()
         self.seq_start_end = [
             (start, end)
             for start, end in zip(cum_start_idx, cum_start_idx[1:])
@@ -189,6 +193,6 @@ class TrajectoryDataset(Dataset):
         out = [
             self.obs_traj[start:end, :], self.pred_traj[start:end, :],
             self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
-            self.non_linear_ped[start:end], self.loss_mask[start:end, :]
+            self.non_linear_agent[start:end], self.loss_mask[start:end, :]
         ]
         return out
