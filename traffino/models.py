@@ -97,7 +97,7 @@ class Decoder(nn.Module):
         )
         self.spatial_embedding=nn.Linear(2, self.embedding_dim)
         self.hidden2pos = nn.Linear(h_dim, 2)
-        """
+        
         if pool_every_timestep:
             if pooling_type == 'pool_net':
                 self.pool_net = PoolHiddenNet(
@@ -125,7 +125,7 @@ class Decoder(nn.Module):
                 batch_norm=batch_norm,
                 droupout=dropout
             )
-        """
+        
     def forward(self, last_pos, last_pos_rel, state_tuple):
         """
         Inputs:
@@ -152,7 +152,7 @@ class Decoder(nn.Module):
                 output, state_tuple = self.decoder(decoder_input, state_tuple)
                 rel_pos = self.hidden2pos(output.view(-1, self.h_dim))
                 curr_pos = rel_pos+last_pos
-                """    
+                  
                 if self.pool_every_timestep:
                     decoder_h = state_tuple[0]
                     pool_h = self.pool_net(decoder_h, seq_start_end, curr_pos)
@@ -162,7 +162,7 @@ class Decoder(nn.Module):
                     decoder_h = self.mlp(decoder_h)
                     decoder_h = torch.unsquuze(decoder_h, 0)
                     state_tuple(decoder_h, state_tuple[1])
-                """
+                
                 embedding_input=rel_pos
                 
                 decoder_input = self.spatial_embedding(embedding_input)
@@ -362,12 +362,27 @@ class SocialPooling(nn.Module):
 
 class TrajectoryGenerator(nn.Module):
     def __init__(
-        self, obs_len, pred_len, embedding_dim=64, encoder_h_dim=64, 
-        decoder_h_dim=128, mlp_dim=1024, num_layers=1, noise_dim=(0, ),
+        self, 
+        obs_len, 
+        pred_len, 
+        embedding_dim=64, 
+        encoder_h_dim=64, 
+        decoder_h_dim=128, 
+        mlp_dim=1024, 
+        num_layers=1,
+        noise_dim=(0, ),
         bottleneck_dim=1024,
-        # noise_type='gaussian', noise_mix_type='ped', pooling_type=None,
-        # pool_every_timestep=True, dropout=0.0, 
-        # activation='relu', batch_norm=True, neighborhood_size=2.0, grid_size=8
+        noise_type='gaussian', 
+        noise_mix_type='ped', 
+        pooling_type=None,
+        pool_every_timestep=True, 
+        dropout=0.0, 
+        activation='relu', 
+        batch_norm=True, 
+        neighborhood_size=2.0, 
+        grid_size=8,
+        light_input_size=5,
+        light_embedding_size=32,
     ):
         super(TrajectoryGenerator, self).__init__()
         self.obs_len = obs_len
@@ -384,6 +399,7 @@ class TrajectoryGenerator(nn.Module):
         self.noise_first_dim = 0
         # self.pool_every_timestep = pool_every_timestep
         self.bottleneck_dim = 1024
+        self.light_input_size=light_input_size
         
         self.encoder = Encoder(
             embedding_dim=embedding_dim,
