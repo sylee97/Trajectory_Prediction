@@ -11,8 +11,14 @@ logger = logging.getLogger(__name__)
 
 
 def seq_collate(data):
-    (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list,
-     non_linear_ped_list, loss_mask_list) = zip(*data)
+    (
+        obs_seq_list, 
+        pred_seq_list, 
+        obs_seq_rel_list, 
+        pred_seq_rel_list,
+        non_linear_ped_list, 
+        loss_mask_list
+    ) = zip(*data)
 
     _len = [len(seq) for seq in obs_seq_list]
     cum_start_idx = [0] + np.cumsum(_len).tolist()
@@ -29,8 +35,13 @@ def seq_collate(data):
     loss_mask = torch.cat(loss_mask_list, dim=0)
     seq_start_end = torch.LongTensor(seq_start_end)
     out = [
-        obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, non_linear_ped,
-        loss_mask, seq_start_end
+        obs_traj, 
+        pred_traj, 
+        obs_traj_rel, 
+        pred_traj_rel, 
+        non_linear_ped,
+        loss_mask, 
+        seq_start_end
     ]
 
     return tuple(out)
@@ -64,7 +75,7 @@ def poly_fit(traj, traj_len,
     t = np.linspace(0, traj_len - 1, traj_len) # np.linspace(시작점, 끝점, 구간 내 숫자 개수)
     res_x = np.polyfit(t, traj[0, -traj_len:], 2, full=True)[1]
     res_y = np.polyfit(t, traj[1, -traj_len:], 2, full=True)[1]
-    if res_x + res_y >= threshold:
+    if res_x + res_y >= threshold: # error
        return 1.0
     else:
        return 0.0
@@ -73,8 +84,13 @@ def poly_fit(traj, traj_len,
 class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
     def __init__(
-        self, data_dir, obs_len=8, pred_len=12, skip=1, 
-        threshold=0.002, min_agent=1, 
+        self, 
+        data_dir, 
+        obs_len=8, 
+        pred_len=12, 
+        skip=1, 
+        threshold=0.002, 
+        min_agent=1, 
         delim='\t'
     ):
         """
@@ -91,7 +107,7 @@ class TrajectoryDataset(Dataset):
         """
         super(TrajectoryDataset, self).__init__()
 
-        self.data_dir = data_dir
+        self.data_dir = data_dir 
         self.obs_len = obs_len
         self.pred_len = pred_len
         self.skip = skip
@@ -111,15 +127,16 @@ class TrajectoryDataset(Dataset):
         for path in all_files:
             data = read_file(path, delim)
             frames = np.unique(data[:, 0]).tolist()# np.unique : 중복된 값을 제거한 배열을 반환함, # 모든 행 0번째 열만 slicing
+            
             frame_data = []
             for frame in frames:
                 frame_data.append(data[frame == data[:, 0], :]) # frame_data (agent 정보)
-            num_sequences = int(
-                math.ceil((len(frames) - self.seq_len + 1) / skip)) # 가까운 수의 상위 정수로 반올림 (7994-20)/1 = 7975
+            num_sequences = int(math.ceil((len(frames) - self.seq_len + 1) / skip)) # 가까운 수의 상위 정수로 반올림 (7994-20)/1 = 7975
 
             for idx in range(0, num_sequences * self.skip + 1, skip):
                 curr_seq_data = np.concatenate(                         # 현재 seq_data
-                    frame_data[idx:idx + self.seq_len], axis=0)
+                    frame_data[idx:idx + self.seq_len], axis=0
+                )
             
                 agents_in_curr_seq = np.unique(curr_seq_data[:, 1])       # 현재 seq에 있는 agents, 모든 행의 1번째(agent 정보) 열 slicing
                 curr_seq_rel = np.zeros((len(agents_in_curr_seq), 2,        # (현재 seq에 있는 agents 개수, 2, seq_len) 
@@ -129,6 +146,7 @@ class TrajectoryDataset(Dataset):
                                            self.seq_len))
                 num_peds_considered = 0
                 _non_linear_agent = []
+                
                 for _, ped_id in enumerate(agents_in_curr_seq):
                     curr_ped_seq = curr_seq_data[curr_seq_data[:, 1] ==
                                                  ped_id, :]
@@ -191,8 +209,11 @@ class TrajectoryDataset(Dataset):
     def __getitem__(self, index):
         start, end = self.seq_start_end[index]
         out = [
-            self.obs_traj[start:end, :], self.pred_traj[start:end, :],
-            self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
-            self.non_linear_agent[start:end], self.loss_mask[start:end, :]
+            self.obs_traj[start:end, :], 
+            self.pred_traj[start:end, :],
+            self.obs_traj_rel[start:end, :], 
+            self.pred_traj_rel[start:end, :],
+            self.non_linear_agent[start:end], 
+            self.loss_mask[start:end, :]
         ]
         return out
