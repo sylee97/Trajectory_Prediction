@@ -36,7 +36,7 @@ def seq_collate(data):
         pred_traffic_rel_list,
         non_linear_ped_list,
         loss_mask_list,
-        cnn_list
+        img_list
     ) = zip(*data)
 
     _len = [len(seq) for seq in obs_seq_list]
@@ -162,7 +162,8 @@ class TrajectoryDataset(Dataset):
         self.seq_len = self.obs_len + self.pred_len # 20
         self.delim = delim
         
-        img_dir = os.path.join(self.data_dir, 'img')
+        img_dir = self.data_dir + '_img_test'
+        
         
 
         all_files = os.listdir(self.data_dir) # 디렉토리에 있는 모든 파일을 리스트로 가져옴, path = 'C:\\Users\\NGN\\dev\\Traffino\\TRAFFINO\\traffino\\datasets'
@@ -206,7 +207,8 @@ class TrajectoryDataset(Dataset):
                 state_data.append(data2[frame == data2[:, 0], :])
                 traffic_data.append(data3[frame == data3[:, 0], ])
                 # Get image_tensor
-                img = Image.open(os.path.join(img_dir, '769', '769'+"_"+ 'frame'+"_"+frame))
+                dir_num = 769
+                img = Image.open(os.path.join(img_dir, str(dir_num), str(dir_num) + "_frame_" + str(int(frame-1))+ ".jpg" ))
                 to_tensor = transforms.ToTensor()
                 img_tensor = Variable((to_tensor(img)).unsqueeze(0))
                 img_list.append(img_tensor)
@@ -314,6 +316,7 @@ class TrajectoryDataset(Dataset):
         seq_list_rel3 = np.concatenate(seq_list_rel3, axis=0)
         
         loss_mask_list = np.concatenate(loss_mask_list, axis=0)
+        img_list = np.concatenate(img_list, axis=0)
         non_linear_agent = np.asarray(non_linear_agent)
 
         # Convert numpy -> Torch Tensor

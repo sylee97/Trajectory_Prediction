@@ -94,19 +94,19 @@ STATE_DIM = 4
 
 default_backbone = ResNetBackbone('resnet18')
 
-class SceneFusionState(nn.Module):
+class SceneFusionTraffic(nn.Module):
     def __init__(self, backbone: nn.Module = default_backbone,
                  n_hidden_layers: int = 1024,
                  input_shape: Tuple[int, int, int] = (3, 1280, 720)):
-        super(SceneFusionState, self).__init__()
+        super(SceneFusionTraffic, self).__init__()
         
         self.backbone = backbone  
         backbone_feature_dim = calculate_backbone_feature_dim(backbone, input_shape)
         
-        self.fc1 = nn.Linear(backbone_feature_dim + STATE_DIM+1, n_hidden_layers)
+        self.fc1 = nn.Linear(backbone_feature_dim + 1, n_hidden_layers)
                
     def forward(self, image_tensor: torch.Tensor,
-                agent_state_vector: torch.Tensor, 
+                # agent_state_vector: torch.Tensor, 
                 traffic_light: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the model.
@@ -119,7 +119,7 @@ class SceneFusionState(nn.Module):
         """
 
         backbone_features = self.backbone(image_tensor)
-        fusion_features = torch.cat([backbone_features, agent_state_vector, traffic_light], dim=1)
+        fusion_features = torch.cat([backbone_features, traffic_light], dim=1)
 
 
         x = f.relu(self.fc1(fusion_features)) ###
@@ -225,53 +225,53 @@ class StateEncoder(nn.Module):
         final_h2 = state[0]
         return final_h2 
 
-class TrafficEncoder(nn.Module):
-    """ """
-    def __init__(
-        self, h_dim=64, embedding_dim=64
-        , mlp_dim=1024, num_layers=1,
-        dropout=0.0
-    ):
-        super(TrafficEncoder, self).__init__() # Module 클래스 속성을 초기화 함
+# class TrafficEncoder(nn.Module):
+#     """ """
+#     def __init__(
+#         self, h_dim=64, embedding_dim=64
+#         , mlp_dim=1024, num_layers=1,
+#         dropout=0.0
+#     ):
+#         super(TrafficEncoder, self).__init__() # Module 클래스 속성을 초기화 함
     
-        self.mlp_dim=1024    
-        self.h_dim = h_dim # 64
-        self.embedding_dim = embedding_dim # embedding to lstm cell : e_{i}^t --> 64
-        self.num_layers = num_layers # single layer to get a fixed length vector e_{i}^t --> 1
+#         self.mlp_dim=1024    
+#         self.h_dim = h_dim # 64
+#         self.embedding_dim = embedding_dim # embedding to lstm cell : e_{i}^t --> 64
+#         self.num_layers = num_layers # single layer to get a fixed length vector e_{i}^t --> 1
         
-        self.encoder = nn.LSTM( # input_size, hidden_size, num_layers
-            embedding_dim, h_dim, num_layers # num_layers=1
-        )
+#         self.encoder = nn.LSTM( # input_size, hidden_size, num_layers
+#             embedding_dim, h_dim, num_layers # num_layers=1
+#         )
         
-        self.spatial_embedding = nn.Linear( # location (x_{i}^t, y_{i}^t) + tl_code_{i}^t --> embeddings
-            1, embedding_dim # input sample size, output sample size
-        ) 
+#         self.spatial_embedding = nn.Linear( # location (x_{i}^t, y_{i}^t) + tl_code_{i}^t --> embeddings
+#             1, embedding_dim # input sample size, output sample size
+#         ) 
     
-    def init_hidden(self, batch):
+#     def init_hidden(self, batch):
         
-        return(
-            torch.zeros(1, batch, self.h_dim).cuda(),
-        )
+#         return(
+#             torch.zeros(1, batch, self.h_dim).cuda(),
+#         )
     
-    def forward(self, obs_traj):
-        """ 
-        Inputs:
-        - obs_traj: Tensor of shape (obs_len, batch, 1)
-        Output:
-        - final_h: Tensor of shape (self.num_layers, batch, self.h_dim)
-        """
+#     def forward(self, obs_traj):
+#         """ 
+#         Inputs:
+#         - obs_traj: Tensor of shape (obs_len, batch, 1)
+#         Output:
+#         - final_h: Tensor of shape (self.num_layers, batch, self.h_dim)
+#         """
         
-        # Encode observed Trajectory
-        batch = obs_traj.size(1) # npeds
-        # total = batch * (MAX_PEDS if padded else 1)
-        obs_traj_embedding = self.spatial_embedding(obs_traj.view(-1,1))
-        obs_traj_embedding = obs_traj_embedding.view(
-            -1, batch, self.embedding_dim
-        )
-        state_tuple = self.init_hidden(batch) # self.init_hidden(total)
-        output, state = self.encoder(obs_traj_embedding, state_tuple)
-        final_h3 = state[0]
-        return final_h3 
+#         # Encode observed Trajectory
+#         batch = obs_traj.size(1) # npeds
+#         # total = batch * (MAX_PEDS if padded else 1)
+#         obs_traj_embedding = self.spatial_embedding(obs_traj.view(-1,1))
+#         obs_traj_embedding = obs_traj_embedding.view(
+#             -1, batch, self.embedding_dim
+#         )
+#         state_tuple = self.init_hidden(batch) # self.init_hidden(total)
+#         output, state = self.encoder(obs_traj_embedding, state_tuple)
+#         final_h3 = state[0]
+#         return final_h3 
     
 class PoolHiddenNet(nn.Module):
     """Pooling module as proposed in Social GAN paper"""
@@ -489,15 +489,15 @@ class TrajectoryGenerator(nn.Module):
             num_layers=num_layers,
             dropout=dropout
         )
-        self.encoder3 = TrafficEncoder(
-            embedding_dim=embedding_dim,
-            h_dim=encoder_h_dim, # 64
-            mlp_dim=mlp_dim,
-            num_layers=num_layers,
-            dropout=dropout
-        )
+        # self.encoder3 = TrafficEncoder(
+        #     embedding_dim=embedding_dim,
+        #     h_dim=encoder_h_dim, # 64
+        #     mlp_dim=mlp_dim,
+        #     num_layers=num_layers,
+        #     dropout=dropout
+        # )
 
-        self.sfs = SceneFusionState(
+        self.sft = SceneFusionTraffic(
             backbone= default_backbone,
             n_hidden_layers = 4096,
             input_shape = (3, 1280, 720)
@@ -602,7 +602,9 @@ class TrajectoryGenerator(nn.Module):
         
     
     def forward(self, obs_traj, obs_traj_rel, seq_start_end, 
-                image_tensor, agent_state_vector, traffic_light,
+                image_tensor, 
+                # agent_state_vector, 
+                traffic_light,
                 user_noise=None):
         """
         Inputs:
@@ -619,18 +621,21 @@ class TrajectoryGenerator(nn.Module):
         # Encode seq
         final_encoder_h = self.encoder(obs_traj_rel)
         final_encoder_h2 = self.encoder2(obs_traj_rel)
-        final_encoder_h3 = self.encoder3(obs_traj_rel)
+        # final_encoder_h3 = self.encoder3(obs_traj_rel)
+        
+        
         # Pool States
         if self.pooling_type:
             end_pos = obs_traj[-1, :, :]
             pool_h = self.pool_net(final_encoder_h, seq_start_end, end_pos)
-            sfs = self.sfs(image_tensor, agent_state_vector, traffic_light)
+            sft = self.sft(image_tensor, traffic_light)
             # Construct input hidden states for decoder
             mlp_decoder_context_input = torch.cat(
-                [final_encoder_h.view(-1, self.encoder_h_dim), 
-                 final_encoder_h2.view(-1, self.encoder_h_dim), 
-                 final_encoder_h3.view(-1, self.encoder_h_dim), 
-                 pool_h, sfs], dim=1) # 합치는 부분
+                [final_encoder_h.view(-1, self.encoder_h_dim), # location
+                 final_encoder_h2.view(-1, self.encoder_h_dim), # state
+                 # final_encoder_h3.view(-1, self.encoder_h_dim), 
+                 pool_h, sft], dim=1) # 합치는 부분
+            
         # else:
         #     mlp_decoder_context_input = final_encoder_h.view(
         #         -1, self.encoder_h_dim)
