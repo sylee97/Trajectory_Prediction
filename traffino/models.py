@@ -170,7 +170,104 @@ class TrajEncoder(nn.Module):
         final_h = state[0]
         return final_h 
 
+class StateEncoder(nn.Module):
+    """ """
+    def __init__(
+        self, h_dim=64, embedding_dim=64
+        , mlp_dim=1024, num_layers=1,
+        dropout=0.0
+    ):
+        super(StateEncoder, self).__init__() # Module 클래스 속성을 초기화 함
+    
+        self.mlp_dim=1024    
+        self.h_dim = h_dim # 64
+        self.embedding_dim = embedding_dim # embedding to lstm cell : e_{i}^t --> 64
+        self.num_layers = num_layers # single layer to get a fixed length vector e_{i}^t --> 1
+        
+        self.encoder = nn.LSTM( # input_size, hidden_size, num_layers
+            embedding_dim, h_dim, num_layers # num_layers=1
+        )
+        
+        self.spatial_embedding = nn.Linear( # location (x_{i}^t, y_{i}^t) + tl_code_{i}^t --> embeddings
+            4, embedding_dim # input sample size, output sample size
+        ) 
+    
+    def init_hidden(self, batch):
+        
+        return(
+            torch.zeros(1, batch, self.h_dim).cuda(),
+            torch.zeros(1, batch, self.h_dim).cuda(),
+            torch.zeros(1, batch, self.h_dim).cuda(),
+            torch.zeros(1, batch, self.h_dim).cuda(),
+        )
+    
+    def forward(self, obs_traj):
+        """ 
+        Inputs:
+        - obs_state: Tensor of shape (obs_len, batch, xxx)
+        Output:
+        - final_h: Tensor of shape (self.num_layers, batch, self.h_dim)
+        """
+        
+        # Encode observed Trajectory
+        batch = obs_traj.size(1) # npeds
+        # total = batch * (MAX_PEDS if padded else 1)
+        obs_traj_embedding = self.spatial_embedding(obs_traj.view(-1,4))
+        obs_traj_embedding = obs_traj_embedding.view(
+            -1, batch, self.embedding_dim
+        )
+        state_tuple = self.init_hidden(batch) # self.init_hidden(total)
+        output, state = self.encoder(obs_traj_embedding, state_tuple)
+        final_h2 = state[0]
+        return final_h2 
 
+class TrafficEncoder(nn.Module):
+    """ """
+    def __init__(
+        self, h_dim=64, embedding_dim=64
+        , mlp_dim=1024, num_layers=1,
+        dropout=0.0
+    ):
+        super(TrafficEncoder, self).__init__() # Module 클래스 속성을 초기화 함
+    
+        self.mlp_dim=1024    
+        self.h_dim = h_dim # 64
+        self.embedding_dim = embedding_dim # embedding to lstm cell : e_{i}^t --> 64
+        self.num_layers = num_layers # single layer to get a fixed length vector e_{i}^t --> 1
+        
+        self.encoder = nn.LSTM( # input_size, hidden_size, num_layers
+            embedding_dim, h_dim, num_layers # num_layers=1
+        )
+        
+        self.spatial_embedding = nn.Linear( # location (x_{i}^t, y_{i}^t) + tl_code_{i}^t --> embeddings
+            1, embedding_dim # input sample size, output sample size
+        ) 
+    
+    def init_hidden(self, batch):
+        
+        return(
+            torch.zeros(1, batch, self.h_dim).cuda(),
+        )
+    
+    def forward(self, obs_traj):
+        """ 
+        Inputs:
+        - obs_traj: Tensor of shape (obs_len, batch, 1)
+        Output:
+        - final_h: Tensor of shape (self.num_layers, batch, self.h_dim)
+        """
+        
+        # Encode observed Trajectory
+        batch = obs_traj.size(1) # npeds
+        # total = batch * (MAX_PEDS if padded else 1)
+        obs_traj_embedding = self.spatial_embedding(obs_traj.view(-1,1))
+        obs_traj_embedding = obs_traj_embedding.view(
+            -1, batch, self.embedding_dim
+        )
+        state_tuple = self.init_hidden(batch) # self.init_hidden(total)
+        output, state = self.encoder(obs_traj_embedding, state_tuple)
+        final_h3 = state[0]
+        return final_h3 
     
 class PoolHiddenNet(nn.Module):
     """Pooling module as proposed in Social GAN paper"""
@@ -349,7 +446,7 @@ class TrajectoryGenerator(nn.Module):
         bottleneck_dim=1024,
         noise_type='gaussian', 
         noise_mix_type='ped', 
-        pooling_type= 'pool_net' # None,
+        pooling_type= 'pool_net' ,# None,
         pool_every_timestep=True, 
         dropout=0.0, 
         activation='relu', 
@@ -375,6 +472,20 @@ class TrajectoryGenerator(nn.Module):
         self.bottleneck_dim = 1024
         
         self.encoder = TrajEncoder(
+            embedding_dim=embedding_dim,
+            h_dim=encoder_h_dim, # 64
+            mlp_dim=mlp_dim,
+            num_layers=num_layers,
+            dropout=dropout
+        )
+        self.encoder2 = StateEncoder(
+            embedding_dim=embedding_dim,
+            h_dim=encoder_h_dim, # 64
+            mlp_dim=mlp_dim,
+            num_layers=num_layers,
+            dropout=dropout
+        )
+        self.encoder3 = TrafficEncoder(
             embedding_dim=embedding_dim,
             h_dim=encoder_h_dim, # 64
             mlp_dim=mlp_dim,
@@ -503,6 +614,8 @@ class TrajectoryGenerator(nn.Module):
         batch = obs_traj_rel.size(1)
         # Encode seq
         final_encoder_h = self.encoder(obs_traj_rel)
+        final_encoder_h2 = self.encoder2(obs_traj_rel)
+        final_encoder_h3 = self.encoder3(obs_traj_rel)
         # Pool States
         if self.pooling_type:
             end_pos = obs_traj[-1, :, :]
@@ -510,7 +623,10 @@ class TrajectoryGenerator(nn.Module):
             sfs = self.sfs(image_tensor, agent_state_vector, traffic_light)
             # Construct input hidden states for decoder
             mlp_decoder_context_input = torch.cat(
-                [final_encoder_h.view(-1, self.encoder_h_dim), pool_h, sfs], dim=1) # 합치는 부분
+                [final_encoder_h.view(-1, self.encoder_h_dim), 
+                 final_encoder_h2.view(-1, self.encoder_h_dim), 
+                 final_encoder_h3.view(-1, self.encoder_h_dim), 
+                 pool_h, sfs], dim=1) # 합치는 부분
         # else:
         #     mlp_decoder_context_input = final_encoder_h.view(
         #         -1, self.encoder_h_dim)
