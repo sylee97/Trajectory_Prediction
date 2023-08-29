@@ -2,7 +2,7 @@
 
 
 ## 진행 상황 ##
-1. 0.4s 단위로 Dataset 맞추기 (Done)
+1.  ~~ 0.4s 단위로 Dataset 맞추기 (Done) ~~
 2. Dataset 불러오기 (Done) --> jupyter notebook 환경에서 실행
 3. 신호등 Encoding 하기 (Done)
 4. 모델 내부 dimension 맞추기 (To-Do)
