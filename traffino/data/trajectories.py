@@ -13,10 +13,21 @@ logger = logging.getLogger(__name__)
 def seq_collate(data):
     (
         obs_seq_list, 
+        obs_state_list,
+        obs_traffic_list,
+        
         pred_seq_list, 
+        pred_state_list,
+        pred_traffic_list,
+        
         obs_seq_rel_list, 
+        obs_state_rel_list,
+        obs_traffic_rel_list, 
+        
         pred_seq_rel_list,
-        non_linear_ped_list, 
+        pred_state_rel_list,
+        pred_traffic_rel_list,
+        non_linear_ped_list,
         loss_mask_list,
         # cnn_list
     ) = zip(*data)
@@ -29,19 +40,44 @@ def seq_collate(data):
     # Data format: batch, input_size, seq_len
     # LSTM input format: seq_len, batch, input_size
     obs_traj = torch.cat(obs_seq_list, dim=0).permute(2, 0, 1)
+    obs_state = torch.cat(obs_state_list, dim=0).permute(2, 0, 1)
+    obs_traffic = torch.cat(obs_traffic_list, dim=0).permute(2, 0, 1)
+    
     pred_traj = torch.cat(pred_seq_list, dim=0).permute(2, 0, 1)
+    pred_state = torch.cat(pred_state_list, dim=0).permute(2, 0, 1)
+    pred_traffic = torch.cat(pred_traffic_list, dim=0).permute(2, 0, 1)
+    
     obs_traj_rel = torch.cat(obs_seq_rel_list, dim=0).permute(2, 0, 1)
+    obs_state_rel = torch.cat(obs_state_rel_list, dim=0).permute(2, 0, 1)
+    obs_traffic_rel = torch.cat(obs_traffic_rel_list, dim=0).permute(2, 0, 1)
+    
     pred_traj_rel = torch.cat(pred_seq_rel_list, dim=0).permute(2, 0, 1)
+    pred_state_rel = torch.cat(pred_state_rel_list, dim=0).permute(2, 0, 1)
+    pred_traffic_rel = torch.cat(pred_traffic_rel_list, dim=0).permute(2, 0, 1)
+    
     non_linear_ped = torch.cat(non_linear_ped_list)
     loss_mask = torch.cat(loss_mask_list, dim=0)
     seq_start_end = torch.LongTensor(seq_start_end)
     # cnn_list = torch.cat(cnn_list, dim=0).repeat(obs_traj.size(1), 1, 1) # 
     out = [
         obs_traj, 
+        obs_state,
+        obs_traffic,
+        
         pred_traj, 
+        pred_state,
+        pred_traffic,
+        
         obs_traj_rel, 
+        obs_state_rel,
+        obs_traffic_rel,
+        
         pred_traj_rel, 
+        pred_state_rel,
+        pred_traffic_rel,
+        
         non_linear_ped,
+        
         loss_mask, 
         seq_start_end,
         # cnn_list
@@ -134,10 +170,10 @@ class TrajectoryDataset(Dataset):
         non_linear_agent = []
         
         for path in all_files:
-            _, file_name_ext = os.path.split(path)
+            dir_name, file_name_ext = os.path.split(path)
             file_name, ext = os.path.splitext(file_name_ext)
-            path2 = file_name + '2'+ ext
-            path3 = file_name + '3'+ ext
+            path2 = dir_name + '2\\'+ file_name + '2'+ ext
+            path3 = dir_name + '2\\'+ file_name + '3'+ ext
             
             data = read_file(path, delim) # 0769_prep.txt (원본, 10 column) # <frame_id> <agent_id> <x> <y> <speed> <tan_acc> <lat_acc> <angle> <tl_code> <time>
             data2 = read_file(path2, delim) # <frame_id> <agent_id> <speed> <tan_acc> <lat_acc> <angle> 
