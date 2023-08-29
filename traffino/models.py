@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchvision.models as models
+# import torchvision.models as models
 from torchvision.models import (
 #                                 mobilenet_v2, # --> not in torchvision v0.2.1
                                   resnet18, resnet34, resnet50, resnet101, resnet152
@@ -11,7 +11,7 @@ from torchvision.models import (
 from typing import Tuple
 
 from torch.nn import functional as f
-default_backbone = resnet18
+
 
 
 def trim_network_at_index(network: nn.Module, index: int = -1) -> nn.Module:
@@ -92,13 +92,17 @@ class ResNetBackbone(nn.Module):
     
 STATE_DIM = 4
 
+default_backbone = ResNetBackbone('resnet18')
+
 class SceneFusionState(nn.Module):
     def __init__(self, backbone: nn.Module = default_backbone,
                  n_hidden_layers: int = 1024,
                  input_shape: Tuple[int, int, int] = (3, 1280, 720)):
         super(SceneFusionState, self).__init__()
-        self.backbone = backbone
+        
+        self.backbone = backbone  
         backbone_feature_dim = calculate_backbone_feature_dim(backbone, input_shape)
+        
         self.fc1 = nn.Linear(backbone_feature_dim + STATE_DIM+1, n_hidden_layers)
                
     def forward(self, image_tensor: torch.Tensor,
@@ -452,7 +456,7 @@ class TrajectoryGenerator(nn.Module):
         activation='relu', 
         batch_norm=True, 
         neighborhood_size=2.0, 
-        default_backbone = resnet18 
+        default_backbone = default_backbone 
         # grid_size=8,
     ):
         super(TrajectoryGenerator, self).__init__()
