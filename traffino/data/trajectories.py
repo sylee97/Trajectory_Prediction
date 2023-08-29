@@ -266,29 +266,29 @@ class TrajectoryDataset(Dataset):
             seq_list[:, :, :self.obs_len]).type(torch.float)
         self.obs_state = torch.from_numpy(
             seq_list2[:, :, :self.obs_len]).type(torch.float)  
-        # self.obs_traffic = torch.from_numpy(
-        #     seq_list3[:, :, :self.obs_len]).type(torch.float)    
+        self.obs_traffic = torch.from_numpy(
+            seq_list3[:, :, :self.obs_len]).type(torch.float)    
         
         self.pred_traj = torch.from_numpy(
             seq_list2[:, :, self.obs_len:]).type(torch.float)
         self.pred_state = torch.from_numpy(
             seq_list2[:, :, self.obs_len:]).type(torch.float)
-        # self.pred_traffic = torch.from_numpy(
-        #     seq_list3[:, :, self.obs_len:]).type(torch.float)
+        self.pred_traffic = torch.from_numpy(
+            seq_list3[:, :, self.obs_len:]).type(torch.float)
     
         self.obs_traj_rel = torch.from_numpy(
             seq_list_rel[:, :, :self.obs_len]).type(torch.float)
         self.obs_state_rel = torch.from_numpy(
             seq_list_rel2[:, :, :self.obs_len]).type(torch.float)
-        # self.obs_traffic_rel = torch.from_numpy(
-        #     seq_list_rel3[:, :, :self.obs_len]).type(torch.float)
+        self.obs_traffic_rel = torch.from_numpy(
+            seq_list_rel3[:, :, :self.obs_len]).type(torch.float)
         
         self.pred_traj_rel = torch.from_numpy(
             seq_list_rel[:, :, self.obs_len:]).type(torch.float)
         self.pred_state_rel = torch.from_numpy(
             seq_list_rel2[:, :, self.obs_len:]).type(torch.float)
-        # self.pred_traffic_rel = torch.from_numpy(
-        #     seq_list_rel3[:, :, self.obs_len:]).type(torch.float)
+        self.pred_traffic_rel = torch.from_numpy(
+            seq_list_rel3[:, :, self.obs_len:]).type(torch.float)
         
         self.loss_mask = torch.from_numpy(loss_mask_list).type(torch.float)
         self.non_linear_agent = torch.from_numpy(non_linear_agent).type(torch.float)
@@ -304,19 +304,23 @@ class TrajectoryDataset(Dataset):
     def __getitem__(self, index):
         start, end = self.seq_start_end[index]
         out = [
-            self.obs_traj[start:end, :], 
-            self.obs_state[start:end, :], 
-            
-            self.pred_traj[start:end, :],
-            self.pred_state[start:end, :],
-            
-            self.obs_traj_rel[start:end, :], 
-            self.obs_state_rel[start:end, :], 
+            self.obs_traj[start:end, :],                # 0
+            self.obs_state[start:end, :],               # 1
+            self.obs_traffic[start:end, :],             # 2
                         
-            self.pred_traj_rel[start:end, :],
-            self.pred_state_rel[start:end, :],           
+            self.pred_traj[start:end, :],               # 3
+            self.pred_state[start:end, :],              # 4
+            self.pred_traffic[start:end, :],            # 5
             
-            self.non_linear_agent[start:end], 
-            self.loss_mask[start:end, :]
+            self.obs_traj_rel[start:end, :],            # 6
+            self.obs_state_rel[start:end, :],           # 7
+            self.obs_traffic_rel[start:end, :],         # 8
+                        
+            self.pred_traj_rel[start:end, :],           # 9
+            self.pred_state_rel[start:end, :],          # 10         
+            self.pred_traffic_rel[start:end, :],        # 11     
+                        
+            self.non_linear_agent[start:end],           # 12
+            self.loss_mask[start:end, :]                # 13
         ]
         return out
