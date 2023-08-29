@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader
 
-from trajectories import TrajectoryDataset, seq_collate
+from traffino.data.trajectories import TrajectoryDataset, seq_collate
 
 
 def data_loader(args, path):

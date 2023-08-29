@@ -117,7 +117,7 @@ def main(args):
         restore_path = os.path.join(args.output_dir,
                                     '%s_with_model.pt' % args.checkpoint_name)
 
-    if restore_path is not None and os.path.isfile(restore_path):
+    if restore_path is not None and os.path.isfile(restore_path): # restore 할 파일이 있으면
         logger.info('Restoring from checkpoint {}'.format(restore_path))
         checkpoint = torch.load(restore_path)
         generator.load_state_dict(checkpoint['g_state'])
