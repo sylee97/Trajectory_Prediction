@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/home/gpuadmin/dev/traj_pred/Trajectory_Prediction')
+
 from torch.utils.data import DataLoader
 
 from traffino.data.trajectories import TrajectoryDataset, seq_collate

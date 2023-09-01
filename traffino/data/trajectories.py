@@ -35,8 +35,8 @@ def seq_collate(data):
         pred_state_rel_list,
         pred_traffic_rel_list,
         non_linear_ped_list,
-        loss_mask_list,
-        img_list
+        loss_mask_list
+        # ,img_list
     ) = zip(*data)
 
     _len = [len(seq) for seq in obs_seq_list]
@@ -65,7 +65,7 @@ def seq_collate(data):
     non_linear_ped = torch.cat(non_linear_ped_list)
     loss_mask = torch.cat(loss_mask_list, dim=0)
     seq_start_end = torch.LongTensor(seq_start_end)
-    img_list = torch.cat(img_list, dim=0)
+    # img_list = torch.cat(img_list, dim=0)
     
     out = [
         obs_traj, 
@@ -89,7 +89,7 @@ def seq_collate(data):
         loss_mask, 
         seq_start_end,
         
-        img_list
+        # img_list
     ]
 
     return tuple(out)
@@ -97,12 +97,11 @@ def seq_collate(data):
 
 def read_file(_path, delim='\t'):
     data = []
-    if delim == 'tab':
-        delim = '\t'
-    elif delim == 'space':
-        delim = ' '
+    print(_path)
+    delim = '\t'
     with open(_path, 'r') as f:
         for line in f:
+            # print(line)
             line = line.strip().split(delim)
             line = [float(i) for i in line]
             data.append(line)
@@ -133,7 +132,7 @@ class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
     def __init__(
         self, 
-        data_dir, 
+        data_dir,
         obs_len=8, 
         pred_len=12, 
         skip=1, 
@@ -162,13 +161,15 @@ class TrajectoryDataset(Dataset):
         self.seq_len = self.obs_len + self.pred_len # 20
         self.delim = delim
         
-        img_dir = self.data_dir + '_img_test'
+        # temp, _= os.path.split(self.data_dir)
+        # img_dir = temp+ '_img' # path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train_img'
         
         
 
-        all_files = os.listdir(self.data_dir) # 디렉토리에 있는 모든 파일을 리스트로 가져옴, path = 'C:\\Users\\NGN\\dev\\Traffino\\TRAFFINO\\traffino\\datasets'
+        all_files = os.listdir(self.data_dir) # 디렉토리에 있는 모든 파일을 리스트로 가져옴, path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train'
         print(all_files) # data_dir에서 파일을 잘 불러오는 지 확인
         all_files = [os.path.join(self.data_dir, _path) for _path in all_files] # data_dir\_path
+        all_files = sorted(all_files)
         num_agents_in_seq = []
         
         seq_list = []
@@ -181,16 +182,20 @@ class TrajectoryDataset(Dataset):
         
         loss_mask_list = []
         non_linear_agent = []
-        
+        folder_num= 770
         for path in all_files:
-            dir_name, file_name_ext = os.path.split(path)
+            
+            dir_name, file_name_ext = os.path.split(path) # dir_name='/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train/'
             file_name, ext = os.path.splitext(file_name_ext)
-            path2 = dir_name + '2\\'+ file_name + '2'+ ext
-            path3 = dir_name + '2\\'+ file_name + '3'+ ext
+            # path = dir_name + '\\str(folder_num)\\' + file_name + ext 
+            path2 = dir_name + '2/'+ file_name + '2'+ ext
+            path3 = dir_name + '2/'+ file_name + '3'+ ext
             
             data = read_file(path, delim) # 0769_prep.txt (원본, 10 column) # <frame_id> <agent_id> <x> <y> <speed> <tan_acc> <lat_acc> <angle> <tl_code> <time>
             data2 = read_file(path2, delim) # <frame_id> <agent_id> <speed> <tan_acc> <lat_acc> <angle> 
             data3 = read_file(path3, delim) # <frame_id> <tl_code> 
+
+            folder_num +=1
             
             frames = np.unique(data[:, 0]).tolist()# np.unique : 중복된 값을 제거한 배열을 반환함, # 모든 행 0번째 열(<frame_id>)만 slicing
             # print(f"len(frames) : {len(frames)}")
@@ -199,7 +204,7 @@ class TrajectoryDataset(Dataset):
             frame_data = []
             state_data = []
             traffic_data = []
-            img_list = [] 
+            # img_list = [] 
             
             for frame in frames:
                 frame_data_all.append(data[frame == data[:, 0], :4]) # all
@@ -208,10 +213,10 @@ class TrajectoryDataset(Dataset):
                 traffic_data.append(data3[frame == data3[:, 0], ])
                 # Get image_tensor
                 dir_num = 769
-                img = Image.open(os.path.join(img_dir, str(dir_num), str(dir_num) + "_frame_" + str(int(frame-1))+ ".jpg" ))
+                # img = Image.open(os.path.join(img_dir, str(dir_num), str(dir_num) + "_frame_" + str(int(frame-1))+ ".jpg" ))
                 to_tensor = transforms.ToTensor()
-                img_tensor = Variable((to_tensor(img)).unsqueeze(0))
-                img_list.append(img_tensor)
+                # img_tensor = Variable((to_tensor(img)).unsqueeze(0))
+                # img_list.append(img_tensor)
                 
             # print(f"len(frame_data) : {len(frame_data)}")
             # print(f"frame_data : {frame_data}")
@@ -316,7 +321,7 @@ class TrajectoryDataset(Dataset):
         seq_list_rel3 = np.concatenate(seq_list_rel3, axis=0)
         
         loss_mask_list = np.concatenate(loss_mask_list, axis=0)
-        img_list = np.concatenate(img_list, axis=0)
+        # img_list = np.concatenate(img_list, axis=0)
         non_linear_agent = np.asarray(non_linear_agent)
 
         # Convert numpy -> Torch Tensor
@@ -328,7 +333,7 @@ class TrajectoryDataset(Dataset):
             seq_list3[:, :, :self.obs_len]).type(torch.float)    
         
         self.pred_traj = torch.from_numpy(
-            seq_list2[:, :, self.obs_len:]).type(torch.float)
+            seq_list[:, :, self.obs_len:]).type(torch.float)
         self.pred_state = torch.from_numpy(
             seq_list2[:, :, self.obs_len:]).type(torch.float)
         self.pred_traffic = torch.from_numpy(
@@ -350,7 +355,7 @@ class TrajectoryDataset(Dataset):
         
         self.loss_mask = torch.from_numpy(loss_mask_list).type(torch.float)
         self.non_linear_agent = torch.from_numpy(non_linear_agent).type(torch.float)
-        self.img_list = torch.from_numpy(img_list).type(torch.float)
+        # self.img_list = torch.from_numpy(img_list).type(torch.float)
         
         cum_start_idx = [0] + np.cumsum(num_agents_in_seq).tolist()
         self.seq_start_end = [
@@ -383,7 +388,7 @@ class TrajectoryDataset(Dataset):
             self.pred_traffic_rel[start:end, :],        # 11     
                         
             self.non_linear_agent[start:end],           # 12
-            self.loss_mask[start:end, :],                # 13
-            self.img_list[start:end, :]                 # 14
+            self.loss_mask[start:end, :]                  # 13
+            # self.img_list[start:end, :]                 # 14
         ]
         return out
