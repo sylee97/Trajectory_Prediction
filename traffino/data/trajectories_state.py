@@ -17,7 +17,7 @@ from torch.autograd import Variable
 logger = logging.getLogger(__name__)
 
 
-def seq_collate(data):                      # 매개변수 : 10개, out : 11개(seq_start_end 추가)
+def seq_collate(data):                      # 10개 매개변수, 11개 out (마지막에 seq_start_end 추가)
     (
         obs_seq_list, 
         obs_state_list,
@@ -52,13 +52,13 @@ def seq_collate(data):                      # 매개변수 : 10개, out : 11개(
     
     obs_traj_rel = torch.cat(obs_seq_rel_list, dim=0).permute(2, 0, 1)
     pred_traj_rel = torch.cat(pred_seq_rel_list, dim=0).permute(2, 0, 1)
-    
+
     non_linear_ped = torch.cat(non_linear_ped_list)
     loss_mask = torch.cat(loss_mask_list, dim=0)
     seq_start_end = torch.LongTensor(seq_start_end)
     # img_list = torch.cat(img_list, dim=0)
     
-    out = [                 # out : 11개(seq_start_end 추가)
+    out = [
         obs_traj, 
         obs_state,
         obs_traffic,
@@ -67,9 +67,9 @@ def seq_collate(data):                      # 매개변수 : 10개, out : 11개(
         pred_state,
         pred_traffic,
         
-        obs_traj_rel,     
+        obs_traj_rel, 
         pred_traj_rel, 
-        
+
         non_linear_ped,
         
         loss_mask, 
@@ -162,6 +162,7 @@ class TrajectoryDataset(Dataset):
         seq_list3 = [] # traffic 
         
         seq_list_rel = []
+
         
         loss_mask_list = []
         non_linear_agent = []
@@ -206,20 +207,21 @@ class TrajectoryDataset(Dataset):
             num_sequences = int(math.ceil((len(frames) - self.seq_len + 1) / skip)) # sequences의 숫자 // 가까운 수의 상위 정수로 반올림 (7994-20)/1 = 7975
 
             for idx in range(0, num_sequences * self.skip + 1, skip):
-                curr_seq_data = np.concatenate(                         # num_sequnce만큼 끊어서 curr seq_data 생성 // frame_data[0:20], frame_data[1:21], frame_data[2:22]
+                curr_seq_data = np.concatenate(                         # num_sequnce만큼 끊어서 합침, curr seq_data 생성 // frame_data[0:20], frame_data[1:21], frame_data[2:22]
                     frame_data[idx : idx + self.seq_len], axis=0
                 )
-                curr_seq_data2 = np.concatenate(                         # num_sequnce만큼 끊어서 curr seq_data 생성
-                    state_data[idx:idx + self.seq_len], axis=0               # ex) seq 1: 1-20 frame, seq 2: 2-21 frame ... 
+                curr_seq_data2 = np.concatenate(                         
+                    state_data[idx:idx + self.seq_len], axis=0               
                 )
-                curr_seq_data3 = np.concatenate(                         # num_sequnce만큼 끊어서 curr seq_data 생성
-                    traffic_data[idx:idx + self.seq_len], axis=0               # ex) seq 1: 1-20 frame, seq 2: 2-21 frame ... 
+                curr_seq_data3 = np.concatenate(                         
+                    traffic_data[idx:idx + self.seq_len], axis=0               
                 )
             
                 agents_in_curr_seq = np.unique(curr_seq_data[:, 1])       # 현재 seq에 있는 agents 목록, 모든 행의 1번째(agent 정보) 열 slicing
 
                 curr_seq_rel = np.zeros((len(agents_in_curr_seq), 2,        # (현재 seq에 있는 agents 개수, 2, seq_len) 
                                          self.seq_len))
+   
                 
                 curr_seq = np.zeros((len(agents_in_curr_seq), 2, self.seq_len)) # (현재 seq에 있는 agents 개수, 2, seq_len) 
                 curr_seq2 = np.zeros((len(agents_in_curr_seq), 4, self.seq_len)) # (현재 seq에 있는 agents 개수, 4, seq_len) --> state 저장용
@@ -247,7 +249,7 @@ class TrajectoryDataset(Dataset):
                     agent_end = frames.index(curr_agent_seq[-1, 0]) - idx + 1
                     
                     if agent_end - agent_front != self.seq_len:
-                        continue
+                        continue                                    # 아래 코드 건너뜀
                     curr_agent_seq = np.transpose(curr_agent_seq[:, 2:])
                     curr_agent_seq2 = np.transpose(curr_agent_seq2[:, 2:])
                     curr_agent_seq3 = np.transpose(curr_agent_seq3[:, 2:])
@@ -287,6 +289,7 @@ class TrajectoryDataset(Dataset):
                     
                     seq_list_rel.append(curr_seq_rel[:num_agents_considered])
 
+
         self.num_seq = len(seq_list)
         
         seq_list = np.concatenate(seq_list, axis=0)
@@ -294,7 +297,6 @@ class TrajectoryDataset(Dataset):
         seq_list3 = np.concatenate(seq_list3, axis=0)
         
         seq_list_rel = np.concatenate(seq_list_rel, axis=0)
-
         
         loss_mask_list = np.concatenate(loss_mask_list, axis=0)
         # img_list = np.concatenate(img_list, axis=0)
@@ -320,6 +322,7 @@ class TrajectoryDataset(Dataset):
         
         self.pred_traj_rel = torch.from_numpy(
             seq_list_rel[:, :, self.obs_len:]).type(torch.float)
+
         
         self.loss_mask = torch.from_numpy(loss_mask_list).type(torch.float)
         self.non_linear_agent = torch.from_numpy(non_linear_agent).type(torch.float)
@@ -338,20 +341,20 @@ class TrajectoryDataset(Dataset):
 
     def __getitem__(self, index):
         start, end = self.seq_start_end[index]
-        out = [
-            self.obs_traj[start:end, :],                        # 0
-            self.obs_state[start:end, :],                       # 1
-            self.obs_traffic[start:end, :],                     # 2
+        out = [                                                     # 10개 값
+            self.obs_traj[start:end, :],                            # 0
+            self.obs_state[start:end, :],                           # 1 (add)
+            self.obs_traffic[start:end, :],                         # 2 (add)
                         
-            self.pred_traj[start:end, :],                       # 3
-            self.pred_state[start:end, :],                      # 4
-            self.pred_traffic[start:end, :],                    # 5
+            self.pred_traj[start:end, :],                           # 3
+            self.pred_state[start:end, :],                          # 4 (add)
+            self.pred_traffic[start:end, :],                        # 5 (add)
             
-            self.obs_traj_rel[start:end, :],                    # 6                            
-            self.pred_traj_rel[start:end, :],                   # 7 
+            self.obs_traj_rel[start:end, :],                        # 6             
+            self.pred_traj_rel[start:end, :],                       # 7
                         
-            self.non_linear_agent[start:end],                   # 8
-            self.loss_mask[start:end, :],                       # 9
-            # self.img_list[start:end, :]                       
+            self.non_linear_agent[start:end],                       # 8
+            self.loss_mask[start:end, :]                            # 9
+            # self.img_list[start:end, :]                 
         ]
         return out
