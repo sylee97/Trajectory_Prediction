@@ -1,5 +1,6 @@
 import sys
-sys.path.append('/home/gpuadmin/dev/traj_pred/Trajectory_Prediction')
+sys.path.append('/home/gpuadmin/dev/Trajectory_Prediction')
+
 
 from torch.utils.data import DataLoader
 
