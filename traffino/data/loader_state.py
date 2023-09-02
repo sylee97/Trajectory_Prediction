@@ -3,7 +3,7 @@ sys.path.append('/home/gpuadmin/dev/traj_pred/Trajectory_Prediction')
 
 from torch.utils.data import DataLoader
 
-from traffino.data.trajectories_basic import TrajectoryDataset, seq_collate
+from traffino.data.trajectories_state import TrajectoryDataset, seq_collate
 
 
 def data_loader(args, path):
@@ -20,5 +20,5 @@ def data_loader(args, path):
         shuffle=False,
         # shuffle=True,
         num_workers=args.loader_num_workers,
-    collate_fn=seq_collate) # variable-length input을 batch로 잘 묶어서 dataloader로 넘겨줌
+        collate_fn=seq_collate)
     return dset, loader
