@@ -497,11 +497,7 @@ class TrajectoryGenerator(nn.Module):
         
     
     def forward(self, obs_traj, obs_traj_rel, seq_start_end, 
-                obs_state, obs_state_rel,
-                # image_tensor, 
-                # agent_state_vector, 
-                # traffic_light,
-                obs_traffic,
+                obs_state, obs_traffic,
                 user_noise=None):
         """
         Inputs:
@@ -517,7 +513,7 @@ class TrajectoryGenerator(nn.Module):
         batch = obs_traj_rel.size(1)
         # Encode seq
         final_encoder_h = self.encoder(obs_traj_rel)
-        final_encoder_h2 = self.encoder2(obs_state_rel)
+        final_encoder_h2 = self.encoder2(obs_state)
         final_encoder_h3 = self.encoder3(obs_traffic)           
 
         
