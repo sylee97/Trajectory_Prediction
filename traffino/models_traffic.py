@@ -266,8 +266,6 @@ class Decoder(nn.Module):
         self.decoder = nn.LSTM(
             embedding_dim, h_dim, num_layers # ,dropout=dropout # 1 -> num_layers
         )
-        self.spatial_embedding=nn.Linear(2, self.embedding_dim)
-        self.hidden2pos = nn.Linear(h_dim, 2)
         
         if pool_every_timestep:
             if pooling_type == 'pool_net':
@@ -280,13 +278,13 @@ class Decoder(nn.Module):
                     batch_norm=batch_norm,
                     dropout=dropout
                 )
-        mlp_dims = [h_dim + bottleneck_dim, mlp_dim, h_dim]
-        self.mlp = make_mlp(
-            mlp_dims,
-            activation=activation,
-            batch_norm=batch_norm,
-            dropout=dropout
-        )
+            mlp_dims = [h_dim + bottleneck_dim, mlp_dim, h_dim]
+            self.mlp = make_mlp(
+                mlp_dims,
+                activation=activation,
+                batch_norm=batch_norm,
+                dropout=dropout
+            )
 
         self.spatial_embedding = nn.Linear(2, embedding_dim)
         self.hidden2pos = nn.Linear(h_dim, 2)
@@ -305,38 +303,32 @@ class Decoder(nn.Module):
         pred_traj_fake_rel=[]
         decoder_input = self.spatial_embedding(last_pos_rel)
         decoder_input = decoder_input.contiguous().view(1, batch, self.embedding_dim)
-        
+
+     
         for _ in range(self.seq_len):
             output, state_tuple = self.decoder(decoder_input, state_tuple)
             rel_pos = self.hidden2pos(output.contiguous().view(-1, self.h_dim))
             curr_pos = rel_pos+last_pos
-            embedding_input = rel_pos 
-            
-            
-            for _ in range(self.seq_len):
-                output, state_tuple = self.decoder(decoder_input, state_tuple)
-                rel_pos = self.hidden2pos(output.contiguous().view(-1, self.h_dim))
-                curr_pos = rel_pos+last_pos
-                  
-                if self.pool_every_timestep:
-                    decoder_h = state_tuple[0]
-                    pool_h = self.pool_net(decoder_h, seq_start_end, curr_pos)
-                    decoder_h = torch.cat(
-                        [decoder_h.contiguous().view(-1, self.h_dim), pool_h], dim=1
-                    )
-                    decoder_h = self.mlp(decoder_h)
-                    decoder_h = torch.unsqueeze(decoder_h, 0)
-                    state_tuple=(decoder_h, state_tuple[1])
                 
-                embedding_input=rel_pos
-                
-                decoder_input = self.spatial_embedding(embedding_input)
-                decoder_input = decoder_input.contiguous().view(1, batch, self.embedding_dim)
-                pred_traj_fake_rel.append(rel_pos.contiguous().view(batch, -1))
-                last_pos=curr_pos 
+            if self.pool_every_timestep:
+                decoder_h = state_tuple[0]
+                pool_h = self.pool_net(decoder_h, seq_start_end, curr_pos)
+                decoder_h = torch.cat(
+                    [decoder_h.contiguous().view(-1, self.h_dim), pool_h], dim=1
+                )
+                decoder_h = self.mlp(decoder_h)
+                decoder_h = torch.unsqueeze(decoder_h, 0)
+                state_tuple=(decoder_h, state_tuple[1])
             
-            pred_traj_fake_rel=torch.stack(pred_traj_fake_rel, dim=0)
-            return pred_traj_fake_rel, state_tuple[0]
+            embedding_input=rel_pos
+            
+            decoder_input = self.spatial_embedding(embedding_input)
+            decoder_input = decoder_input.contiguous().view(1, batch, self.embedding_dim)
+            pred_traj_fake_rel.append(rel_pos.contiguous().view(batch, -1))
+            last_pos=curr_pos 
+        
+        pred_traj_fake_rel=torch.stack(pred_traj_fake_rel, dim=0)
+        return pred_traj_fake_rel, state_tuple[0]
  
 
 
