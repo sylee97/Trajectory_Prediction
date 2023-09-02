@@ -165,30 +165,29 @@ class Decoder(nn.Module):
         self.decoder = nn.LSTM(
             embedding_dim, h_dim, num_layers , dropout=dropout # 1 -> num_layers
         )
-        self.spatial_embedding=nn.Linear(2, self.embedding_dim)
-        self.hidden2pos = nn.Linear(h_dim, 2)
+
         
         if pool_every_timestep:
             if pooling_type == 'pool_net':
                 self.pool_net = PoolHiddenNet(
-                    embedding_dim = self.embedding_dim,
-                    h_dim=self.h_dim,
-                    mlp_dim=mlp_dim,
-                    bottleneck_dim=bottleneck_dim,
-                    activation=activation,
-                    batch_norm=batch_norm,
+                    embedding_dim = self.embedding_dim, # embedding_dim=64
+                    h_dim=self.h_dim,                   # h_dim=128
+                    mlp_dim=mlp_dim,                    # mlp_dim =128
+                    bottleneck_dim=bottleneck_dim,      # bottleneck_dim = 1024
+                    activation=activation,              # activation = 'relu'
+                    batch_norm=batch_norm,              # batch_norm = True
                     dropout=dropout
                 )
-        mlp_dims = [h_dim + bottleneck_dim, mlp_dim, h_dim]
-        self.mlp = make_mlp(
-            mlp_dims,
-            activation=activation,
-            batch_norm=batch_norm,
-            dropout=dropout
-        )
+            mlp_dims = [h_dim + bottleneck_dim, mlp_dim, h_dim] # [128 + 1024, 128, 128]
+            self.mlp = make_mlp(                                # make_mlp(1024, 'relu', Ture, 0.0)
+                mlp_dims,
+                activation=activation,
+                batch_norm=batch_norm,
+                dropout=dropout
+            )
 
-        self.spatial_embedding = nn.Linear(2, embedding_dim)
-        self.hidden2pos = nn.Linear(h_dim, 2)
+        self.spatial_embedding=nn.Linear(2, self.embedding_dim) # 64
+        self.hidden2pos = nn.Linear(h_dim, 2) # h_dim=128
 
     def forward(self, last_pos, last_pos_rel, state_tuple, seq_start_end):
         """
@@ -394,8 +393,6 @@ class TrajectoryGenerator(nn.Module):
         # Encode seq
         final_encoder_h = self.encoder(obs_traj_rel)
 
-        
-        
         # Pool States
         if self.pooling_type:
             end_pos = obs_traj[-1, :, :]
