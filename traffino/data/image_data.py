@@ -68,14 +68,19 @@ class ImageDataset(Dataset):
             if self.transform is not None:
                 tensor_image = self.transform(image)
             img_list.append(image)
+            
             img_tensor_list.append(tensor_image)
+            
+        # img_list = np.concatenate(img_list, axis=0)
+        # img_tensor_list = np.concatenate(img_tensor_list, axis=0)
 
             
         
-        self.list_img = img_list
-        self.list_ten_img = img_tensor_list
+        # self.list_img = torch.from_numpy(img_list).type(torch.float)
+        # self.list_ten_img = torch.from_numpy(img_tensor_list).type(torch.float)
 
-        
+        self.list_img=img_list
+        self.tensor_list=img_tensor_list        
 
             
         
@@ -85,7 +90,7 @@ class ImageDataset(Dataset):
     def __getitem__(self, index):
         out =  [
                 self.list_img,
-                self.list_ten_img
+                self.tensor_list
         ]
 
         return out

@@ -14,6 +14,9 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 
 
+from PIL import Image
+import torchvision.transforms as T
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,8 +34,8 @@ def seq_collate(data):                      # 매개변수 : 10개, out : 11개(
         pred_seq_rel_list,
         
         non_linear_ped_list,
-        loss_mask_list
-        # ,img_list
+        loss_mask_list,
+        img_list
     ) = zip(*data)
 
     _len = [len(seq) for seq in obs_seq_list]
@@ -74,7 +77,7 @@ def seq_collate(data):                      # 매개변수 : 10개, out : 11개(
         
         loss_mask, 
         seq_start_end,
-        # img_list
+        img_list
     ]
 
     return tuple(out)
@@ -145,10 +148,6 @@ class TrajectoryDataset(Dataset):
         self.skip = skip
         self.seq_len = self.obs_len + self.pred_len # 20
         self.delim = delim
-        
-        # temp, _= os.path.split(self.data_dir)
-        # img_dir = temp+ '_img' # path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train_img'
-        
         
 
         all_files = os.listdir(self.data_dir) # 디렉토리에 있는 모든 파일을 리스트로 가져옴, path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train'
@@ -330,6 +329,22 @@ class TrajectoryDataset(Dataset):
             (start, end)
             for start, end in zip(cum_start_idx, cum_start_idx[1:])
         ]
+
+        #temp, _ = os.path.split(self.data_dir) # path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train'
+        
+        #img_dir = temp + '_img' # path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train_img'
+        self.img_dir='/home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img/769'
+        img_tensor_list=[]
+        all_img_files = os.listdir(self.img_dir)
+
+        for file in all_img_files:
+            image = Image.open(path).convert("RGB")
+            if self.transform is not None:
+                tensor_image = self.transform(image)
+            img_tensor_list.append(tensor_image)
+        
+        self.tensor_list=img_tensor_list    
+
         
 
 
@@ -352,6 +367,7 @@ class TrajectoryDataset(Dataset):
                         
             self.non_linear_agent[start:end],                   # 8
             self.loss_mask[start:end, :],                       # 9
-            # self.img_list[start:end, :]                       
+            self.img_tensor_list
+                                
         ]
         return out

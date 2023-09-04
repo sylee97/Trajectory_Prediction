@@ -55,7 +55,8 @@ class SemanticImageEncoder(nn.Module):
             )
 
     def forward(self, input):
-        encoded = self._encoder(input.type(torch.cuda.FloatTensor))
+        #encoded = self._encoder(input.type(torch.cuda.FloatTensor))
+        encoded = self._encoder(input.type(torch.FloatTensor))
         return encoded
 
 
@@ -380,6 +381,8 @@ class TrajectoryGenerator(nn.Module):
         batch_norm=True, 
         neighborhood_size=2.0, 
         # grid_size=8,
+        image_channels=3,
+        embed_dim_image=32
     ):
         super(TrajectoryGenerator, self).__init__()
         self.obs_len = obs_len
@@ -411,9 +414,8 @@ class TrajectoryGenerator(nn.Module):
             num_layers=num_layers,
             dropout=dropout
         )
-        # self.light_embedding=nn.Sequntial(
-        #     nn.BatchNorm1d(self.)
-        # )
+
+        self._semantic_image_encoder = SemanticImageEncoder(in_channels = image_channels, out_channels = embed_dim_image)
 
         self.decoder = Decoder(
             pred_len,
@@ -511,11 +513,23 @@ class TrajectoryGenerator(nn.Module):
             return True
         else:
             return False
+    
+
+    def list2batch(self, seq):
+        # assemble a list of elements to batch, batch_idx: 0th dimension
+        stacked = torch.tensor(seq[0]).unsqueeze(0)
+        i = 1
+        l = len(seq)
+        while i < l:
+            stacked = torch.cat((stacked, torch.tensor(seq[i]).unsqueeze(0)), 0)
+            i += 1
+        return stacked
         
     
-    def forward(self, obs_traj, obs_traj_rel, seq_start_end, 
-                obs_state, obs_traffic,
-                user_noise=None):
+    def forward(
+                self, obs_traj, obs_traj_rel, seq_start_end, 
+                obs_state, obs_traffic,img_list,
+                user_noise=None ):
         """
         Inputs:
         - obs_traj: Tensor of shape (obs_len, batch, 2)
@@ -533,7 +547,9 @@ class TrajectoryGenerator(nn.Module):
         final_encoder_h2 = self.encoder2(obs_state)
         final_encoder_h3 = self.encoder3(obs_traffic)           
 
-        
+        # Encode image
+        input_image_batch = self.list2batch(img_list)
+        embed_image_batch = self._semantic_image_encoder(input_image_batch.cuda())
         
         # Pool States
         if self.pooling_type:
