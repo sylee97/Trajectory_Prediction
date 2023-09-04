@@ -1,11 +1,34 @@
 import os
 import time
 import torch
+import torch.nn as nn
 import numpy as np
 import inspect
 from contextlib import contextmanager
 import subprocess
 
+
+class conv2DBatchNormRelu(nn.Module):
+    def __init__(self, in_channels, n_filters, k_size,  stride, padding, bias=True, dilation=1):
+        super(conv2DBatchNormRelu, self).__init__()
+
+        self.cbr_unit = nn.Sequential(
+            nn.Conv2d(
+                int(in_channels), # 입력 채널의 수, rgb의 경우 3
+                      int(n_filters), # 필터의 수
+                      kernel_size=k_size, # 커널의 크기
+                        padding=padding, 
+                        stride=stride, 
+                        bias=bias, # bias (default=True) : 편향 사용의 여부
+                        dilation=dilation # 딜레이션 레이트 : default = 1
+                ),
+            nn.BatchNorm2d(int(n_filters)), # 2차원 이미지 데이터에 대한 배치 정규화
+            nn.ReLU(inplace=True),
+                                 ) 
+
+    def forward(self, inputs):
+        outputs = self.cbr_unit(inputs)
+        return outputs
 
 def int_tuple(s):
     return tuple(int(i) for i in s.split(','))
@@ -93,3 +116,4 @@ def relative_to_abs(rel_traj, start_pos):
     start_pos = torch.unsqueeze(start_pos, dim=1)
     abs_traj = displacement + start_pos
     return abs_traj.permute(1, 0, 2)
+
