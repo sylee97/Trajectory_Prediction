@@ -415,7 +415,8 @@ class TrajectoryGenerator(nn.Module):
             dropout=dropout
         )
 
-        self._semantic_image_encoder = SemanticImageEncoder(in_channels = image_channels, out_channels = embed_dim_image)
+        self._semantic_image_encoder = SemanticImageEncoder(
+            in_channels = image_channels, out_channels = embed_dim_image)
 
         self.decoder = Decoder(
             pred_len,
@@ -549,6 +550,7 @@ class TrajectoryGenerator(nn.Module):
 
         # Encode image
         input_image_batch = self.list2batch(img_list)
+        
         embed_image_batch = self._semantic_image_encoder(input_image_batch.cuda())
         
         # Pool States

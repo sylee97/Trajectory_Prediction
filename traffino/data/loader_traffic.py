@@ -4,8 +4,9 @@ sys.path.append('/home/gpuadmin/dev/Trajectory_Prediction')
 
 from torch.utils.data import DataLoader
 
-from traffino.data.trajectories_traffic import TrajectoryDataset, seq_collate # traffic ligth 적용을 위한 dataset
+#  from traffino.data.trajectories_traffic import TrajectoryDataset, seq_collate # traffic ligth 적용을 위한 dataset
 
+from traffino.data.data import TrajectoryDataset, seq_collate # traffic light + image 적용을 위한 dataset
 
 def data_loader(args, path):
     dset = TrajectoryDataset(
