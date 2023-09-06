@@ -13,8 +13,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.autograd import Variable
 
-
-from PIL import Image
+import pickle as pk
 import torchvision.transforms as T
 
 logger = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ def seq_collate(data):                      # 매개변수 : 10개, out : 11개(
     non_linear_ped = torch.cat(non_linear_ped_list)
     loss_mask = torch.cat(loss_mask_list, dim=0)
     seq_start_end = torch.LongTensor(seq_start_end)
-    img_list = torch.cat(img_list, dim=0).repeat(obs_traj.size(1),1,1)
+    img_list = torch.cat(img_list, dim=0).repeat(obs_traj.size(1),1,1) ###
     
     out = [                 # out : 11개(seq_start_end 추가)
         obs_traj, 
@@ -164,8 +163,11 @@ class TrajectoryDataset(Dataset):
 
         loss_mask_list = []
         non_linear_agent = []
-        folder_num= 770
+
         fet_map = {}
+        fet_list = []
+
+        idx_num=0
 
         for path in all_files:
             
@@ -178,8 +180,6 @@ class TrajectoryDataset(Dataset):
             data = read_file(path, delim) # 0769_prep.txt (원본, 10 column) # <frame_id> <agent_id> <x> <y> <speed> <tan_acc> <lat_acc> <angle> <tl_code> <time>
             data2 = read_file(path2, delim) # <frame_id> <agent_id> <speed> <tan_acc> <lat_acc> <angle> 
             data3 = read_file(path3, delim) # <frame_id> <tl_code> 
-
-            folder_num +=1
             
             frames = np.unique(data[:, 0]).tolist()# np.unique : 중복된 값을 제거한 배열을 반환함, # 모든 행 0번째 열(<frame_id>)만 slicing
             # print(f"len(frames) : {len(frames)}")
@@ -189,13 +189,44 @@ class TrajectoryDataset(Dataset):
             state_data = []
             traffic_data = []
             # img_list = [] 
-            img_path = os.path.split(os.path.split(path)[0])[0]+'/img' # /home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img
+            img_path = os.path.split(dir_name)[0]+'/img' # /home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img
 
-            img_train_path = img_path + '/train'
-            img_val_path = img_path + '/val'
+            train_type = os.path.split(os.path.split(path)[0])[1]
 
-            print(img_path)
-            # fet_map[img_path] = torch.from_numpy(new_fet)
+
+            if train_type=='train':
+                img_path = img_path + '/train/' # /home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img/train/
+                img_dir_num = os.listdir(img_path) 
+                img_dir_num = sorted(img_dir_num) # ['769', '770', '771', '775', '776', '777', '778', '779']
+                print(img_dir_num)
+                img_path = img_path + str(img_dir_num[idx_num]) #/home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img/img/train/760
+
+            elif train_type =='val':
+                img_path = img_path + '/val/'                 
+                img_dir_num = os.listdir(img_path)
+                img_dir_num = sorted(img_dir_num) 
+                img_path = img_path + str(img_dir_num[idx_num])
+
+            else:
+                img_path = img_path + '/test/'  
+                img_dir_num = os.listdir(img_path)
+                img_dir_num = sorted(img_dir_num) 
+                img_path = img_path + str(img_dir_num[idx_num])
+
+            print(idx_num)
+            idx_num+=1
+
+            
+
+            print(f"img_path:{img_path}")
+
+            pkl_name = "ft_img_" + str(os.path.split(img_path)[1]) + ".pkl" # ft_img_769.pkl
+            pkl_path = img_path + '/' + pkl_name            # /home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img/img/train/760/760.pkl
+
+            with open(pkl_path, 'rb') as handle:
+                new_fet = pk.load(handle, encoding='bytes') # 파일에 있는 이미지들의 특징값 불러오기
+
+            fet_map[img_path] = new_fet
 
 
 
@@ -299,6 +330,7 @@ class TrajectoryDataset(Dataset):
                     seq_list3.append(curr_seq3[:num_agents_considered])
                     
                     seq_list_rel.append(curr_seq_rel[:num_agents_considered])
+                    fet_list.append(img_path)
 
         self.num_seq = len(seq_list)
         
@@ -348,16 +380,19 @@ class TrajectoryDataset(Dataset):
         
         # img_dir = temp + '_img' # path = '/home/gpuadmin/dev/traj_pred/Trajectory_Prediction/traffino/datasets/waterloo/train_img'
         # self.img_dir='/home/gpuadmin/dev/Trajectory_Prediction/traffino/datasets/waterloo/img/769'
-        img_tensor_list=[]
-        all_img_files = os.listdir(self.img_dir)
+        # img_tensor_list=[]
+        # all_img_files = os.listdir(self.img_dir)
 
-        for file in all_img_files:
-            image = Image.open(path).convert("RGB")
-            if self.transform is not None:
-                tensor_image = self.transform(image)
-            img_tensor_list.append(tensor_image)
+        # for file in all_img_files:
+        #     image = Image.open(path).convert("RGB")
+        #     if self.transform is not None:
+        #         tensor_image = self.transform(image)
+        #     img_tensor_list.append(tensor_image)
         
-        self.tensor_list=img_tensor_list    
+        # self.tensor_list=img_tensor_list    
+        self.fet_map=fet_map
+        self.fet_list = fet_list
+        
 
         
 
@@ -381,7 +416,7 @@ class TrajectoryDataset(Dataset):
                         
             self.non_linear_agent[start:end],                   # 8
             self.loss_mask[start:end, :],                       # 9
-            self.img_tensor_list
+            self.fet_map[self.fet_list[index]]
                                 
         ]
         return out
